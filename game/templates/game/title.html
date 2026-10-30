@@ -1,0 +1,987 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>あと1回だけ。</title>
+
+<link
+    rel="stylesheet"
+    href="{% static 'game/css/style.css' %}"
+>
+</head>
+
+<body>
+
+<main>
+
+    <!-- =========================
+         タイトル画面
+    ========================== -->
+    <section id="title-screen">
+
+        <header>
+
+            <p>ONE MORE?</p>
+
+            <h1>
+                あと1回だけ。
+            </h1>
+
+            <p>
+                欲張ったら、全部なくなる。
+            </p>
+
+        </header>
+
+        <section>
+
+            <p>BEST SCORE</p>
+
+            <div id="title-best-score">
+                🏆 ---
+            </div>
+
+        </section>
+
+        <section>
+
+            <h2>🎲 ルールは簡単</h2>
+
+            <p>
+                「あと1回だけ」を押すと、
+                ポイントを獲得します。
+            </p>
+
+            <p>
+                ただし、BUSTしたら
+                今回のスコアは0点。
+            </p>
+
+            <p>
+                ポイントが増えるほど、
+                BUSTの危険も大きくなります。
+            </p>
+
+            <p>
+                <strong>
+                    どこでやめるかは、あなた次第。
+                </strong>
+            </p>
+
+        </section>
+
+        <button
+            type="button"
+            id="game-start-button"
+        >
+            🎮 GAME START
+        </button>
+
+    </section>
+
+
+    <!-- =========================
+         ゲーム画面
+    ========================== -->
+    <section
+        id="game-screen"
+        hidden
+    >
+
+        <header>
+
+            <p>ONE MORE?</p>
+
+            <h1>
+                あと1回だけ。
+            </h1>
+
+        </header>
+
+        <section>
+
+            <p>SCORE</p>
+
+            <div id="current-score">
+                0
+            </div>
+
+            <p
+                id="point-message"
+                aria-live="polite"
+            >
+                最初の1回を押してみよう。
+            </p>
+
+            <p
+                id="combo-message"
+                aria-live="polite"
+                hidden
+            >
+            </p>
+
+        </section>
+
+        <section>
+
+            <p>💀 BUST RISK</p>
+
+            <div id="bust-risk">
+                5%
+            </div>
+
+            <p>
+                BUSTしたら今回のスコアは0点
+            </p>
+
+        </section>
+
+        <section>
+
+            <button
+                type="button"
+                id="push-button"
+            >
+                🎲 あと1回だけ
+            </button>
+
+            <button
+                type="button"
+                id="lock-button"
+                disabled
+            >
+                💰 0点で確定
+            </button>
+
+        </section>
+
+        <footer>
+
+            <p>
+                BEST：
+                <strong id="game-best-score">
+                    ---
+                </strong>
+            </p>
+
+            <p>
+                PUSH：
+                <strong id="push-count">
+                    0
+                </strong>
+            </p>
+
+        </footer>
+
+    </section>
+
+
+    <!-- =========================
+         結果画面
+    ========================== -->
+    <section
+        id="result-screen"
+        hidden
+    >
+
+        <p id="result-label">
+            RESULT
+        </p>
+
+        <h1 id="result-title">
+            SCORE LOCKED
+        </h1>
+
+        <div id="result-score">
+            0
+        </div>
+
+        <p
+            id="result-message"
+            aria-live="polite"
+        >
+        </p>
+
+        <p>
+            BEST SCORE：
+            <strong id="result-best-score">
+                ---
+            </strong>
+        </p>
+
+        <p id="new-record-message" hidden>
+            🎉 NEW RECORD！
+        </p>
+
+        <button
+            type="button"
+            id="retry-button"
+        >
+            🎮 もう一度
+        </button>
+
+        <button
+            type="button"
+            id="back-title-button"
+        >
+            タイトルへ戻る
+        </button>
+
+    </section>
+
+</main>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    // =========================
+    // 設定
+    // =========================
+    const storageKey = "oneMoreBestScore";
+
+    const pointCandidates = [
+        100,
+        200,
+        300,
+        500,
+        1000,
+        2000
+    ];
+
+
+    // =========================
+    // ゲーム状態
+    // =========================
+    let currentScore = 0;
+    let pushCount = 0;
+    let bestScore = loadBestScore();
+    let gameFinished = false;
+
+
+    // =========================
+    // 画面要素
+    // =========================
+    const titleScreen =
+        document.getElementById("title-screen");
+
+    const gameScreen =
+        document.getElementById("game-screen");
+
+    const resultScreen =
+        document.getElementById("result-screen");
+
+    const titleBestScore =
+        document.getElementById("title-best-score");
+
+    const currentScoreElement =
+        document.getElementById("current-score");
+
+    const pointMessage =
+        document.getElementById("point-message");
+
+    const comboMessage =
+        document.getElementById("combo-message");
+
+    const bustRiskElement =
+        document.getElementById("bust-risk");
+
+    const gameBestScore =
+        document.getElementById("game-best-score");
+
+    const pushCountElement =
+        document.getElementById("push-count");
+
+    const gameStartButton =
+        document.getElementById("game-start-button");
+
+    const pushButton =
+        document.getElementById("push-button");
+
+    const lockButton =
+        document.getElementById("lock-button");
+
+    const resultLabel =
+        document.getElementById("result-label");
+
+    const resultTitle =
+        document.getElementById("result-title");
+
+    const resultScore =
+        document.getElementById("result-score");
+
+    const resultMessage =
+        document.getElementById("result-message");
+
+    const resultBestScore =
+        document.getElementById("result-best-score");
+
+    const newRecordMessage =
+        document.getElementById("new-record-message");
+
+    const retryButton =
+        document.getElementById("retry-button");
+
+    const backTitleButton =
+        document.getElementById("back-title-button");
+
+
+    // =========================
+    // BEST SCORE読込
+    // =========================
+    function loadBestScore() {
+
+        try {
+
+            const savedScore = Number.parseInt(
+                localStorage.getItem(storageKey),
+                10
+            );
+
+            if (
+                Number.isFinite(savedScore) &&
+                savedScore > 0
+            ) {
+                return savedScore;
+            }
+
+        } catch (error) {
+
+            console.warn(
+                "BEST SCOREを読み込めませんでした。",
+                error
+            );
+
+        }
+
+        return 0;
+    }
+
+
+    // =========================
+    // BEST SCORE保存
+    // =========================
+    function saveBestScore(score) {
+
+        try {
+
+            localStorage.setItem(
+                storageKey,
+                String(score)
+            );
+
+        } catch (error) {
+
+            console.warn(
+                "BEST SCOREを保存できませんでした。",
+                error
+            );
+
+        }
+    }
+
+
+    // =========================
+    // 数字の表示形式
+    // =========================
+    function formatScore(score) {
+
+        return score.toLocaleString("ja-JP");
+
+    }
+
+
+    // =========================
+    // 次のBUST率
+    // =========================
+    function getBustRisk() {
+
+        const nextAttempt = pushCount + 1;
+
+        if (nextAttempt <= 2) {
+            return 0;
+        }
+
+        if (nextAttempt <= 4) {
+            return 5;
+        }
+
+        if (nextAttempt <= 6) {
+            return 10;
+        }
+
+        if (nextAttempt <= 8) {
+            return 15;
+        }
+
+        if (nextAttempt <= 10) {
+            return 20;
+        }
+
+        if (nextAttempt <= 12) {
+            return 30;
+        }
+
+        if (nextAttempt <= 14) {
+            return 40;
+        }
+
+        return 50;
+    }
+
+
+
+    // =========================
+    // 獲得ポイント抽選
+    // =========================
+    function getRandomPoints() {
+
+        const randomIndex = Math.floor(
+            Math.random() * pointCandidates.length
+        );
+
+        return pointCandidates[randomIndex];
+    }
+
+
+    // =========================
+    // 画面切り替え
+    // =========================
+    function showScreen(screenName) {
+
+        titleScreen.hidden =
+            screenName !== "title";
+
+        gameScreen.hidden =
+            screenName !== "game";
+
+        resultScreen.hidden =
+            screenName !== "result";
+    }
+
+
+    // =========================
+    // BEST SCORE表示更新
+    // =========================
+    function updateBestScoreDisplay() {
+
+        const formattedBest =
+            bestScore > 0
+                ? formatScore(bestScore)
+                : "---";
+
+        titleBestScore.textContent =
+            bestScore > 0
+                ? "🏆 " + formattedBest
+                : "🏆 ---";
+
+        gameBestScore.textContent =
+            formattedBest;
+
+        resultBestScore.textContent =
+            formattedBest;
+    }
+
+    function updateRiskStyle(risk) {
+
+        gameScreen.classList.remove(
+            "risk-warning",
+            "risk-danger",
+            "risk-critical"
+        );
+
+        if (risk >= 40) {
+
+            gameScreen.classList.add(
+                "risk-critical"
+            );
+
+        } else if (risk >= 30) {
+
+            gameScreen.classList.add(
+                "risk-danger"
+            );
+
+        } else if (risk >= 15) {
+
+            gameScreen.classList.add(
+                "risk-warning"
+            );
+
+        }
+
+    }
+
+    function playSuccessAnimation() {
+
+        currentScoreElement.classList.remove(
+            "score-pop"
+        );
+
+        pointMessage.classList.remove(
+            "point-pop"
+        );
+
+        /*
+        同じクラスのアニメーションを
+        連続で再実行できるようにする
+        */
+        void currentScoreElement.offsetWidth;
+        void pointMessage.offsetWidth;
+
+        currentScoreElement.classList.add(
+            "score-pop"
+        );
+
+        pointMessage.classList.add(
+            "point-pop"
+        );
+
+    }
+
+    function updateComboDisplay() {
+
+        gameScreen.classList.remove(
+            "combo-good",
+            "combo-great",
+            "combo-amazing",
+            "combo-legend"
+        );
+
+        comboMessage.classList.remove(
+            "combo-pop",
+            "combo-burst"
+        );
+
+        if (pushCount < 3) {
+
+            comboMessage.hidden = true;
+            comboMessage.textContent = "";
+
+            return;
+        }
+
+        comboMessage.hidden = false;
+
+        /*
+        連続成功数ごとの表示
+        */
+        if (pushCount >= 10) {
+
+            gameScreen.classList.add(
+                "combo-legend"
+            );
+
+            comboMessage.textContent =
+                "👑 " +
+                pushCount +
+                " COMBO！ LEGEND！";
+
+        } else if (pushCount >= 8) {
+
+            gameScreen.classList.add(
+                "combo-amazing"
+            );
+
+            comboMessage.textContent =
+                "🔥 " +
+                pushCount +
+                " COMBO！ AMAZING！";
+
+        } else if (pushCount >= 5) {
+
+            gameScreen.classList.add(
+                "combo-great"
+            );
+
+            comboMessage.textContent =
+                "⚡ " +
+                pushCount +
+                " COMBO！ GREAT！";
+
+        } else {
+
+            gameScreen.classList.add(
+                "combo-good"
+            );
+
+            comboMessage.textContent =
+                "✨ " +
+                pushCount +
+                " COMBO！";
+
+        }
+
+        /*
+        5・8・10回目は強い演出
+        */
+        const isMilestone =
+            pushCount === 5 ||
+            pushCount === 8 ||
+            pushCount === 10;
+
+        comboMessage.classList.add(
+            isMilestone
+                ? "combo-burst"
+                : "combo-pop"
+        );
+
+    }
+
+    function playGameSuccessImpact() {
+
+        gameScreen.classList.remove(
+            "success-impact"
+        );
+
+        void gameScreen.offsetWidth;
+
+        gameScreen.classList.add(
+            "success-impact"
+        );
+
+    }
+
+
+    // =========================
+    // ゲーム画面更新
+    // =========================
+    function updateGameDisplay() {
+
+        const risk = getBustRisk();
+
+        updateRiskStyle(risk);
+
+        currentScoreElement.textContent =
+            formatScore(currentScore);
+
+        bustRiskElement.textContent =
+            risk + "%";
+
+        pushCountElement.textContent =
+            String(pushCount);
+
+        lockButton.textContent =
+            "💰 " +
+            formatScore(currentScore) +
+            "点で確定";
+
+        lockButton.disabled =
+            currentScore <= 0 || gameFinished;
+    }
+
+
+    // =========================
+    // ゲーム開始
+    // =========================
+    function startGame() {
+
+        currentScore = 0;
+        pushCount = 0;
+        gameFinished = false;
+
+        gameScreen.classList.remove(
+            "bust-impact"
+        );
+
+        resultScreen.classList.remove(
+            "new-record"
+        );
+
+        pointMessage.textContent =
+            "最初の1回を押してみよう。";
+
+        pushButton.disabled = false;
+
+        newRecordMessage.hidden = true;
+
+        comboMessage.hidden = true;
+        comboMessage.textContent = "";
+
+        comboMessage.classList.remove(
+            "combo-pop",
+            "combo-burst"
+        );
+
+        gameScreen.classList.remove(
+            "combo-good",
+            "combo-great",
+            "combo-amazing",
+            "combo-legend",
+            "success-impact"
+        );
+
+        updateGameDisplay();
+        updateBestScoreDisplay();
+        showScreen("game");
+    }
+
+
+    // =========================
+    // あと1回
+    // =========================
+    function pushOneMore() {
+
+        if (gameFinished) {
+            return;
+        }
+
+        const risk = getBustRisk();
+
+        const randomNumber =
+            Math.random() * 100;
+
+        if (randomNumber < risk) {
+
+            finishWithBust();
+            return;
+        }
+
+        const earnedPoints =
+            getRandomPoints();
+
+        currentScore += earnedPoints;
+        pushCount += 1;
+
+        pointMessage.textContent =
+            "+" +
+            formatScore(earnedPoints) +
+            " POINT！";
+
+        updateGameDisplay();
+        updateComboDisplay();
+        playSuccessAnimation();
+        playGameSuccessImpact();
+    }
+
+
+    // =========================
+    // スコア確定
+    // =========================
+    function lockScore() {
+
+        if (
+            gameFinished ||
+            currentScore <= 0
+        ) {
+            return;
+        }
+
+        gameFinished = true;
+
+        const lockedScore = currentScore;
+        const previousBest = bestScore;
+        const isNewRecord =
+            lockedScore > previousBest;
+
+        resultScreen.classList.toggle(
+            "new-record",
+            isNewRecord
+        );
+
+        if (isNewRecord) {
+
+            bestScore = lockedScore;
+            saveBestScore(bestScore);
+
+        }
+
+        resultLabel.textContent =
+            "SCORE LOCKED";
+
+        resultTitle.textContent =
+            isNewRecord
+                ? "🎉 NEW RECORD！"
+                : "スコア確定";
+
+        resultScore.textContent =
+            formatScore(lockedScore);
+
+        resultMessage.textContent =
+            formatScore(lockedScore) +
+            "点で確定しました。" +
+            " ……本当に、ここでよかった？";
+
+        newRecordMessage.hidden =
+            !isNewRecord;
+
+        updateBestScoreDisplay();
+        showScreen("result");
+    }
+
+
+    // =========================
+    // BUST
+    // =========================
+    function finishWithBust() {
+
+        if (gameFinished) {
+            return;
+        }
+
+        gameFinished = true;
+
+        resultScreen.classList.remove(
+            "new-record"
+        );
+
+        pushButton.disabled = true;
+        lockButton.disabled = true;
+
+        const lostScore = currentScore;
+
+        /*
+        BUSTした瞬間の表示
+        */
+        pointMessage.textContent = "💥 BUST！";
+
+        currentScoreElement.textContent = "0";
+
+        gameScreen.classList.add(
+            "bust-impact"
+        );
+
+        /*
+        端末側で「動きを減らす」が
+        設定されているか確認
+        */
+        const reduceMotion =
+            window.matchMedia(
+                "(prefers-reduced-motion: reduce)"
+            ).matches;
+
+        const resultDelay =
+            reduceMotion ? 150 : 700;
+
+        /*
+        衝撃演出を見せたあと
+        結果画面へ移動
+        */
+        window.setTimeout(function () {
+
+            gameScreen.classList.remove(
+                "bust-impact"
+            );
+
+            resultLabel.textContent =
+                "GAME OVER";
+
+            resultTitle.textContent =
+                "💥 BUST";
+
+            resultScore.textContent =
+                "0";
+
+            if (lostScore > 0) {
+
+                resultMessage.textContent =
+                    formatScore(lostScore) +
+                    "点まで積み上げましたが、" +
+                    "すべて失いました。" +
+                    " 欲張りましたね。";
+
+            } else {
+
+                resultMessage.textContent =
+                    "最初の1回でBUST。" +
+                    " もう一度挑戦してみましょう。";
+
+            }
+
+            newRecordMessage.hidden = true;
+
+            updateBestScoreDisplay();
+            showScreen("result");
+
+        }, resultDelay);
+
+    }
+
+
+    // =========================
+    // イベント登録
+    // =========================
+    gameStartButton.addEventListener(
+        "click",
+        startGame
+    );
+
+    pushButton.addEventListener(
+        "click",
+        pushOneMore
+    );
+
+    lockButton.addEventListener(
+        "click",
+        lockScore
+    );
+
+    retryButton.addEventListener(
+        "click",
+        startGame
+    );
+
+    backTitleButton.addEventListener(
+        "click",
+        function () {
+
+            updateBestScoreDisplay();
+            showScreen("title");
+
+        }
+    );
+
+    // =========================
+    // アニメーション終了処理
+    // =========================
+    comboMessage.addEventListener(
+        "animationend",
+        function () {
+
+            comboMessage.classList.remove(
+                "combo-pop",
+                "combo-burst"
+            );
+
+        }
+    );
+
+
+    gameScreen.addEventListener(
+        "animationend",
+        function (event) {
+
+            if (
+                event.animationName ===
+                "success-impact"
+            ) {
+                gameScreen.classList.remove(
+                    "success-impact"
+                );
+            }
+
+        }
+    );
+
+
+
+    // =========================
+    // 初期表示
+    // =========================
+    updateBestScoreDisplay();
+    showScreen("title");
+
+});
+</script>
+
+</body>
+
+</html>
